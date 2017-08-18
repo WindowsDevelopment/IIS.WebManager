@@ -39,6 +39,8 @@ import { WindowService } from '../main/window.service';
             padding: 5px 10px;
             margin: 0;
             display: inline-block;
+            white-space: normal;
+            overflow: hidden;
         }
 
         .help-container:hover .help-content {
@@ -54,7 +56,7 @@ export class TooltipComponent implements OnDestroy, AfterViewInit {
     private _width: number = this._defaultWidth;
     private _left: number = 12;
     private _bottom: number = 16;
-    private _padding: 20;
+    private _padding: number = 20;
 
     private _heightStyle: string = "initial";
     private _widthStyle: string = "initial";
@@ -64,12 +66,29 @@ export class TooltipComponent implements OnDestroy, AfterViewInit {
     private _timer = null;
     private _visible: boolean = false;
     private _hideDelay: number = 150; //ms
+    private _containingWindow: HTMLElement = null;
     private _subscriptions: Array<Subscription> = [];
 
     @ViewChild('helpContent')
     private _helpContent: ElementRef;
 
     constructor(private _svc: WindowService) {
+    }
+
+    private get containingWindow(): HTMLElement {
+        if (this._containingWindow) {
+            return this._containingWindow;
+        }
+
+        let elem: HTMLElement = this._helpContent.nativeElement;
+        let parent: HTMLElement = elem.parentElement;
+
+        while (parent.parentElement != null && getComputedStyle(parent, null).overflow !== 'hidden') {
+            parent = parent.parentElement;
+        }
+
+        this._containingWindow = parent;
+        return this._containingWindow;
     }
 
     public ngAfterViewInit() {
@@ -102,8 +121,8 @@ export class TooltipComponent implements OnDestroy, AfterViewInit {
             this.initializeDefaults();
         }
 
-        let width = Math.min(this._defaultWidth, window.innerWidth - this._padding);
-        let height = Math.min(this._defaultHeight, this.windowHeight - this._padding);
+        let width = Math.min(this._defaultWidth, this.containingWindow.offsetWidth - this._padding);
+        let height = Math.min(this._defaultHeight, this.containingWindow.offsetHeight - this._padding);
 
         this._height = height;
         this._width = width;
@@ -113,21 +132,24 @@ export class TooltipComponent implements OnDestroy, AfterViewInit {
 
     private calculatePosition() {
         let rect: ClientRect = this._helpContent.nativeElement.getBoundingClientRect();
-        let elem: HTMLElement = this._helpContent.nativeElement;
+        let containingRect: ClientRect = this.containingWindow.getBoundingClientRect();
 
-        let right = rect.left + this._width;
+        //
+        // Adjust tooltip position to fit width on screen if it overflows the containing element
+        let left = rect.left - containingRect.left;
+        let right = left + this._width;
 
+        let overhangRight = right - this.containingWindow.offsetWidth + (this._padding / 2);
+        let leftAdjust = (overhangRight < 0 || left < 0) ? Math.max(overhangRight, left) : Math.min(overhangRight, left);
 
-        let leftDiff = right - window.innerWidth + (this._padding / 2);
-
-        if (leftDiff > 0) {
-            this._left -= leftDiff;
+        if (overhangRight > 0 && leftAdjust > 0) {
+            this._left -= leftAdjust;
             this._leftStyle = this._left + 'px';
         }
     }
 
     private get windowHeight(): number {
-        return window.innerHeight - 50;
+        return this.containingWindow.offsetHeight - 50;
     }
 
     private initializeDefaults(): void {
