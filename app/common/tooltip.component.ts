@@ -122,7 +122,7 @@ export class TooltipComponent implements OnDestroy, AfterViewInit {
         }
 
         let width = Math.min(this._defaultWidth, this.containingWindow.offsetWidth - this._padding);
-        let height = Math.min(this._defaultHeight, this.containingWindow.offsetHeight - this._padding);
+        let height = Math.min(this._defaultHeight, this.containingWindow.offsetHeight - this._padding) || NaN;
 
         this._height = height;
         this._width = width;
